@@ -12,7 +12,20 @@ def _validate_seed(seed: int) -> None:
 def _next_bit(state: int) -> tuple[int, int]:
     """Return output bit and next state for x^16 + x^14 + x^13 + x^11 + 1."""
     # TODO(student 1): replace this reference state transition in the handout.
-    pass
+
+    output = state & 1
+   # extract feedback bits
+    bit0 = (state >> 0) & 1
+    bit2 = (state >> 2) & 1
+    bit3 = (state >> 3) & 1
+    bit5 = (state >> 5) & 1
+
+    feedback = bit0 ^ bit2 ^ bit3 ^ bit5
+    # Shift register right
+    shifted_state = state >> 1
+    # Insert feedback at bit 15
+    next_state = shifted_state | (feedback << 15)
+    return output, next_state
 
 
 def keystream(length: int, seed: int, offset: int = 0) -> bytes:
@@ -24,10 +37,40 @@ def keystream(length: int, seed: int, offset: int = 0) -> bytes:
         raise ValueError("offset must be a non-negative integer")
 
     # TODO(student 2): replace this reference generator in the handout.
-    pass
+    # initial state
+    state = seed
+
+    # Skip bytes before the requested offset
+    skip_bits = (offset * 8) % LFSR_PERIOD_BITS
+
+    for _ in range(skip_bits):
+        _, state = _next_bit(state)
+
+    #create the output
+    result = bytearray()
+
+    for _ in range(length):
+        value = 0
+
+        for _ in range(8):
+            bit, state = _next_bit(state)
+            value = (value << 1) | bit
+
+        result.append(value)
+
+    return bytes(result)
+
 
 
 def xor_bytes(data: bytes, seed: int, offset: int = 0) -> bytes:
     """Encrypt or decrypt data with the keystream at absolute byte offset."""
     # TODO(student 3): replace this reference XOR operation in the handout.
-    pass
+    key = keystream(len(data), seed, offset)
+
+    result = bytearray()
+
+    for i in range(len(data)):
+        encrypted_byte = data[i] ^ key[i]
+        result.append(encrypted_byte)
+
+    return bytes(result)

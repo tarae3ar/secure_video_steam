@@ -14,15 +14,56 @@ def _validate(length: int, seeds: tuple[int, ...], offset: int) -> None:
         raise ValueError("every seed must be an integer from 1 to 65535")
 
 
+
 def nlfsr_keystream(length: int, seed: int, offset: int = 0) -> bytes:
     """Generate bytes from an NLFSR with one nonlinear AND feedback term.
 
     Use the base feedback bits 0, 2, 3, and 5, then XOR them with
     (bit 1 AND bit 7). Output, shifting, offset, and packing match the LFSR.
     """
+
     _validate(length, (seed,), offset)
-    # TODO(student 7): replace this reference NLFSR in the handout.
-    pass
+
+    state = seed
+
+    # Move to the requested byte offset
+    for _ in range(offset * 8):
+        bit0 = (state >> 0) & 1
+        bit1 = (state >> 1) & 1
+        bit2 = (state >> 2) & 1
+        bit3 = (state >> 3) & 1
+        bit5 = (state >> 5) & 1
+        bit7 = (state >> 7) & 1
+
+        feedback = bit0 ^ bit2 ^ bit3 ^ bit5 ^ (bit1 & bit7)
+        state = (state >> 1) | (feedback << 15)
+
+    # Generate the keystream
+    result = bytearray()
+
+    for _ in range(length):
+        value = 0
+
+        for _ in range(8):
+            output = state & 1
+
+            bit0 = (state >> 0) & 1
+            bit1 = (state >> 1) & 1
+            bit2 = (state >> 2) & 1
+            bit3 = (state >> 3) & 1
+            bit5 = (state >> 5) & 1
+            bit7 = (state >> 7) & 1
+
+            feedback = bit0 ^ bit2 ^ bit3 ^ bit5 ^ (bit1 & bit7)
+
+            state = (state >> 1) | (feedback << 15)
+
+            value = (value << 1) | output
+
+        result.append(value)
+
+    return bytes(result)
+
 
 
 def geffe_keystream(
@@ -39,4 +80,33 @@ def geffe_keystream(
         raise ValueError("the Geffe generator needs exactly three seeds")
     _validate(length, seeds, offset)
     # TODO(student 8): replace this reference Geffe generator in the handout.
-    pass
+    
+    state1, state2, state3 = seeds
+
+    # Skip the requested number of bits
+    skip_bits = (offset * 8) % LFSR_PERIOD_BITS
+
+    for _ in range(skip_bits):
+        _, state1 = _next_bit(state1)
+        _, state2 = _next_bit(state2)
+        _, state3 = _next_bit(state3)
+
+    result = bytearray()
+
+    for _ in range(length):
+        value = 0
+
+        for _ in range(8):
+            x, state1 = _next_bit(state1)
+            y, state2 = _next_bit(state2)
+            z, state3 = _next_bit(state3)
+
+            output = (x & y) ^ ((1 ^ x) & z)
+
+            value = (value << 1) | output
+
+        result.append(value)
+
+    return bytes(result)
+
+
